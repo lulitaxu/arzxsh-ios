@@ -27,7 +27,7 @@ struct QueueView: View {
                     }
                 }
                 Section("Up Next") {
-                    ForEach(Array(engine.queue.enumerated()), id: \.element.id) { index, track in
+                    ForEach(Array(engine.queue.enumerated()), id: \.offset) { index, track in
                         if index != engine.currentIndex {
                             Button {
                                 engine.jumpTo(index: index)

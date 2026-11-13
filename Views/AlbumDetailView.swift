@@ -8,7 +8,7 @@ struct AlbumDetailView: View {
         ScrollView {
             VStack(spacing: 0) {
                 VStack(spacing: 14) {
-                    ArtworkView(album: album, size: 232)
+                    ArtworkView(album: album, size: 232, animated: true)
                         .shadow(color: Color.black.opacity(0.5), radius: 24, x: 0, y: 12)
                     VStack(spacing: 4) {
                         Text(album.title)
@@ -91,6 +91,9 @@ struct AlbumDetailView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("track_\(track.id)")
+                        .contextMenu {
+                            TrackMenuContent(track: track)
+                        }
                         if index < album.tracks.count - 1 {
                             Divider()
                                 .padding(.leading, 50)

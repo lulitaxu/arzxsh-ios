@@ -15,9 +15,47 @@ final class ScreenshotTests: XCTestCase {
         add(attachment)
     }
 
+    func testLikedSongs() throws {
+        app.launchArguments = ["-screen", "nowplaying"]
+        app.launch()
+        XCTAssertTrue(app.buttons["playPauseButton"].waitForExistence(timeout: 15))
+        Thread.sleep(forTimeInterval: 1.5)
+        app.buttons["likeButton"].tap()
+        Thread.sleep(forTimeInterval: 0.6)
+        app.buttons["closeNowPlayingButton"].tap()
+        Thread.sleep(forTimeInterval: 1.0)
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 10))
+        app.tabBars.buttons["Library"].tap()
+        Thread.sleep(forTimeInterval: 1.0)
+        var row = app.buttons["likedSongsRow"]
+        if !row.waitForExistence(timeout: 5) {
+            row = app.cells["likedSongsRow"]
+            XCTAssertTrue(row.waitForExistence(timeout: 5))
+        }
+        row.tap()
+        Thread.sleep(forTimeInterval: 1.2)
+        shot("LikedSongs")
+    }
+
+    func testLyrics() throws {
+        app.launchArguments = ["-screen", "lyrics"]
+        app.launch()
+        Thread.sleep(forTimeInterval: 3.5)
+        shot("Lyrics")
+    }
+
     func testMainScreens() throws {
         app.launch()
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 15))
+        Thread.sleep(forTimeInterval: 1.0)
+
+        let firstPick = app.buttons["quickpick_t01"]
+        XCTAssertTrue(firstPick.waitForExistence(timeout: 10))
+        firstPick.tap()
+        Thread.sleep(forTimeInterval: 1.2)
+        let secondPick = app.buttons["quickpick_t04"]
+        XCTAssertTrue(secondPick.waitForExistence(timeout: 10))
+        secondPick.tap()
         Thread.sleep(forTimeInterval: 1.5)
         shot("Home")
 
@@ -40,6 +78,8 @@ final class ScreenshotTests: XCTestCase {
 
         app.tabBars.buttons["Home"].tap()
         Thread.sleep(forTimeInterval: 0.8)
+        app.scrollViews.firstMatch.swipeUp()
+        Thread.sleep(forTimeInterval: 0.6)
         let card = app.buttons.matching(identifier: "album_midnight-dhaka").firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 10))
         card.tap()
@@ -50,16 +90,17 @@ final class ScreenshotTests: XCTestCase {
     func testNowPlaying() throws {
         app.launchArguments = ["-screen", "nowplaying"]
         app.launch()
+        XCTAssertTrue(app.buttons["playPauseButton"].waitForExistence(timeout: 15))
         Thread.sleep(forTimeInterval: 3.0)
-        XCTAssertTrue(app.buttons["playPauseButton"].waitForExistence(timeout: 10))
         shot("NowPlaying")
-    }
-
-    func testLyrics() throws {
-        app.launchArguments = ["-screen", "lyrics"]
-        app.launch()
-        Thread.sleep(forTimeInterval: 3.5)
-        shot("Lyrics")
+        Thread.sleep(forTimeInterval: 5.0)
+        shot("NowPlayingLive2")
+        app.buttons["shuffleButton"].tap()
+        let repeatButton = app.buttons["repeatButton"]
+        repeatButton.tap()
+        repeatButton.tap()
+        Thread.sleep(forTimeInterval: 0.6)
+        shot("NowPlayingControls")
     }
 
     func testQueue() throws {

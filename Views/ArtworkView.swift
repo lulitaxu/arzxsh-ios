@@ -7,42 +7,41 @@ func formatTime(_ seconds: Double) -> String {
 }
 
 struct ArtworkView: View {
-    let album: Album
-    var size: CGFloat = 160
+    let spec: CoverSpec
+    var width: CGFloat
+    var height: CGFloat
+    var animated: Bool = false
+    var showsTitle: Bool = true
 
-    private var cornerRadius: CGFloat { max(4, size * 0.07) }
+    init(album: Album, size: CGFloat, animated: Bool = false, showsTitle: Bool = true) {
+        self.spec = album.coverSpec
+        self.width = size
+        self.height = size
+        self.animated = animated
+        self.showsTitle = showsTitle
+    }
+
+    init(spec: CoverSpec, size: CGFloat, animated: Bool = false, showsTitle: Bool = true) {
+        self.spec = spec
+        self.width = size
+        self.height = size
+        self.animated = animated
+        self.showsTitle = showsTitle
+    }
+
+    init(spec: CoverSpec, width: CGFloat, height: CGFloat, animated: Bool = false, showsTitle: Bool = true) {
+        self.spec = spec
+        self.width = width
+        self.height = height
+        self.animated = animated
+        self.showsTitle = showsTitle
+    }
+
+    private var cornerRadius: CGFloat { max(4, min(width, height) * 0.07) }
 
     var body: some View {
-        ZStack {
-            LinearGradient(colors: album.colors, startPoint: .topLeading, endPoint: .bottomTrailing)
-            Circle()
-                .fill(Color.white.opacity(0.14))
-                .frame(width: size * 0.95, height: size * 0.95)
-                .offset(x: size * 0.42, y: -size * 0.38)
-            Circle()
-                .fill(Color.white.opacity(0.08))
-                .frame(width: size * 0.6, height: size * 0.6)
-                .offset(x: -size * 0.45, y: size * 0.45)
-            VStack(spacing: size * 0.05) {
-                Image(systemName: album.symbol)
-                    .font(.system(size: size * 0.26, weight: .semibold))
-                    .foregroundStyle(Color.white.opacity(0.92))
-                if size >= 110 {
-                    Text(album.title)
-                        .font(.system(size: size * 0.105, weight: .bold))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .padding(.horizontal, size * 0.1)
-                    Text(album.artist)
-                        .font(.system(size: size * 0.075, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(0.75))
-                        .lineLimit(1)
-                }
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        CoverArt(spec: spec, size: CGSize(width: width, height: height), animated: animated, showsTitle: showsTitle)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }
 

@@ -12,9 +12,11 @@ enum Catalog {
             artist: "Nadia Rahman",
             year: "2024",
             genre: "Indie",
-            colors: [Color(red: 0.10, green: 0.13, blue: 0.42), Color(red: 0.38, green: 0.20, blue: 0.68)],
+            colors: [Color(red: 0.05, green: 0.07, blue: 0.28), Color(red: 0.16, green: 0.16, blue: 0.52), Color(red: 0.38, green: 0.22, blue: 0.66)],
+            glow: Color(red: 0.96, green: 0.91, blue: 0.78),
             tint: Color(red: 0.55, green: 0.65, blue: 1.0),
-            symbol: "moon.stars.fill"
+            coverStyle: .skyline,
+            titleLayout: .bottomLeft
         ),
         Album(
             id: "neon-monsoon",
@@ -22,9 +24,11 @@ enum Catalog {
             artist: "The Cartographers",
             year: "2025",
             genre: "Electronic",
-            colors: [Color(red: 0.02, green: 0.32, blue: 0.38), Color(red: 0.04, green: 0.62, blue: 0.44)],
+            colors: [Color(red: 0.01, green: 0.20, blue: 0.30), Color(red: 0.02, green: 0.42, blue: 0.48), Color(red: 0.10, green: 0.66, blue: 0.52)],
+            glow: Color(red: 0.45, green: 0.95, blue: 1.0),
             tint: Color(red: 0.35, green: 0.95, blue: 0.75),
-            symbol: "cloud.rain.fill"
+            coverStyle: .rain,
+            titleLayout: .topLeft
         ),
         Album(
             id: "golden-hour-static",
@@ -32,9 +36,11 @@ enum Catalog {
             artist: "Arif Chowdhury",
             year: "2023",
             genre: "Folk Pop",
-            colors: [Color(red: 0.82, green: 0.40, blue: 0.08), Color(red: 0.95, green: 0.68, blue: 0.18)],
+            colors: [Color(red: 0.52, green: 0.15, blue: 0.04), Color(red: 0.85, green: 0.38, blue: 0.08), Color(red: 0.98, green: 0.66, blue: 0.20)],
+            glow: Color(red: 1.0, green: 0.86, blue: 0.48),
             tint: Color(red: 1.0, green: 0.78, blue: 0.38),
-            symbol: "sun.horizon.fill"
+            coverStyle: .sunDisc,
+            titleLayout: .centered
         ),
         Album(
             id: "paper-boats",
@@ -42,9 +48,11 @@ enum Catalog {
             artist: "Mira Sen",
             year: "2025",
             genre: "Dream Pop",
-            colors: [Color(red: 0.82, green: 0.28, blue: 0.44), Color(red: 0.52, green: 0.24, blue: 0.70)],
+            colors: [Color(red: 0.42, green: 0.10, blue: 0.38), Color(red: 0.72, green: 0.22, blue: 0.48), Color(red: 0.94, green: 0.45, blue: 0.55)],
+            glow: Color(red: 1.0, green: 0.76, blue: 0.80),
             tint: Color(red: 1.0, green: 0.58, blue: 0.76),
-            symbol: "paperplane.fill"
+            coverStyle: .paperFold,
+            titleLayout: .verticalRight
         )
     ]
 
@@ -217,6 +225,25 @@ enum Catalog {
             L(42, "Some lights only survive"),
             L(46, "Because somebody shields the glow")
         ])
+    ]
+
+    static let mixes: [Mix] = [
+        Mix(
+            id: "dhaka-nights-mix",
+            title: "Dhaka Nights Mix",
+            subtitle: "Late-night city songs",
+            trackIDs: ["t01", "t02", "t03", "t11", "t12"],
+            heroAlbumID: "midnight-dhaka",
+            colors: [Color(red: 0.08, green: 0.05, blue: 0.30), Color(red: 0.30, green: 0.12, blue: 0.52), Color(red: 0.55, green: 0.20, blue: 0.62)]
+        ),
+        Mix(
+            id: "monsoon-focus-mix",
+            title: "Monsoon Focus Mix",
+            subtitle: "Rainy-day concentration",
+            trackIDs: ["t04", "t05", "t06", "t09", "t08"],
+            heroAlbumID: "neon-monsoon",
+            colors: [Color(red: 0.02, green: 0.14, blue: 0.30), Color(red: 0.03, green: 0.32, blue: 0.45), Color(red: 0.06, green: 0.52, blue: 0.55)]
+        )
     ]
 
     static func album(id: String) -> Album {

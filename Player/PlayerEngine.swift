@@ -1,6 +1,12 @@
 import AVFoundation
 import Foundation
 
+enum RepeatMode {
+    case off
+    case all
+    case one
+}
+
 @MainActor
 final class PlayerEngine: ObservableObject {
     @Published var queue: [Track] = []
@@ -12,6 +18,10 @@ final class PlayerEngine: ObservableObject {
         didSet { player.volume = volume }
     }
     @Published var likedIDs: Set<String> = []
+    @Published var history: [Track] = []
+    @Published var shuffleEnabled: Bool = false
+    @Published var repeatMode: RepeatMode = .off
+    @Published var sleepTimerMinutes: Int? = nil
     @Published var showNowPlaying: Bool = false
     @Published var showLyrics: Bool = false
     @Published var showQueue: Bool = false
@@ -25,11 +35,19 @@ final class PlayerEngine: ObservableObject {
     var hasNext: Bool { queue.indices.contains(currentIndex + 1) }
     var hasPrevious: Bool { queue.indices.contains(currentIndex - 1) }
 
+    var likedTracks: [Track] {
+        Catalog.tracks.filter { likedIDs.contains($0.id) }
+    }
+
     private let player = AVPlayer()
     private var timeObserver: Any?
     private var endObserver: NSObjectProtocol?
+    private var preShuffleQueue: [Track]?
+    private var sleepTask: Task<Void, Never>?
+    private let likedKey = "arzxsh.likedTrackIDs"
 
     init() {
+        likedIDs = Set(UserDefaults.standard.stringArray(forKey: likedKey) ?? [])
         player.volume = volume
         timeObserver = player.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: 0.3, preferredTimescale: 600),
@@ -58,11 +76,17 @@ final class PlayerEngine: ObservableObject {
         guard !tracks.isEmpty, tracks.indices.contains(index) else { return }
         queue = tracks
         currentIndex = index
+        shuffleEnabled = false
+        preShuffleQueue = nil
         loadCurrent(autoplay: true)
     }
 
     func playAlbum(_ album: Album, startAt index: Int = 0) {
         playQueue(album.tracks, startAt: index)
+    }
+
+    func playMix(_ mix: Mix) {
+        playQueue(mix.tracks, startAt: 0)
     }
 
     func togglePlayPause() {
@@ -77,9 +101,13 @@ final class PlayerEngine: ObservableObject {
     }
 
     func playNext() {
-        guard hasNext else { return }
-        currentIndex += 1
-        loadCurrent(autoplay: true)
+        if hasNext {
+            currentIndex += 1
+            loadCurrent(autoplay: true)
+        } else if repeatMode == .all, !queue.isEmpty {
+            currentIndex = 0
+            loadCurrent(autoplay: true)
+        }
     }
 
     func playPrevious() {
@@ -119,16 +147,110 @@ final class PlayerEngine: ObservableObject {
         loadCurrent(autoplay: true)
     }
 
+    func playNext(_ track: Track) {
+        playNext([track])
+    }
+
+    func playNext(_ tracks: [Track]) {
+        guard !tracks.isEmpty else { return }
+        guard currentTrack != nil else {
+            playQueue(tracks, startAt: 0)
+            return
+        }
+        queue.insert(contentsOf: tracks, at: currentIndex + 1)
+        if shuffleEnabled {
+            preShuffleQueue?.insert(contentsOf: tracks, at: min(currentIndex + 1, preShuffleQueue?.count ?? 0))
+        }
+    }
+
+    func addToQueue(_ track: Track) {
+        addToQueue([track])
+    }
+
+    func addToQueue(_ tracks: [Track]) {
+        guard !tracks.isEmpty else { return }
+        queue.append(contentsOf: tracks)
+        if shuffleEnabled {
+            preShuffleQueue?.append(contentsOf: tracks)
+        }
+    }
+
+    func toggleShuffle() {
+        shuffleEnabled.toggle()
+        if shuffleEnabled {
+            preShuffleQueue = queue
+            guard queue.count > 2, currentIndex >= 0, currentIndex < queue.count - 1 else { return }
+            let head = Array(queue[...currentIndex])
+            var tail = Array(queue[(currentIndex + 1)...])
+            tail.shuffle()
+            queue = head + tail
+        } else if let backup = preShuffleQueue {
+            var counts: [String: Int] = [:]
+            for track in backup { counts[track.id, default: 0] += 1 }
+            var extras: [Track] = []
+            for track in queue {
+                if let count = counts[track.id], count > 0 {
+                    counts[track.id] = count - 1
+                } else {
+                    extras.append(track)
+                }
+            }
+            var restored = backup
+            restored.append(contentsOf: extras)
+            let current = currentTrack
+            queue = restored
+            if let current, let index = restored.firstIndex(of: current) {
+                currentIndex = index
+            }
+            preShuffleQueue = nil
+        }
+    }
+
+    func cycleRepeat() {
+        switch repeatMode {
+        case .off: repeatMode = .all
+        case .all: repeatMode = .one
+        case .one: repeatMode = .off
+        }
+    }
+
+    func setSleepTimer(_ minutes: Int?) {
+        sleepTask?.cancel()
+        sleepTask = nil
+        sleepTimerMinutes = minutes
+        guard let minutes else { return }
+        sleepTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(minutes) * 60_000_000_000)
+            guard !Task.isCancelled else { return }
+            guard let self else { return }
+            if self.isPlaying {
+                self.player.pause()
+                self.isPlaying = false
+            }
+            self.sleepTimerMinutes = nil
+            self.sleepTask = nil
+        }
+    }
+
     func toggleLike(_ track: Track) {
         if likedIDs.contains(track.id) {
             likedIDs.remove(track.id)
         } else {
             likedIDs.insert(track.id)
         }
+        UserDefaults.standard.set(Array(likedIDs), forKey: likedKey)
     }
 
     func isLiked(_ track: Track) -> Bool {
         likedIDs.contains(track.id)
+    }
+
+    private func recordHistory(_ track: Track) {
+        history.removeAll { $0.id == track.id }
+        history.insert(track, at: 0)
+        if history.count > 24 {
+            history = Array(history.prefix(24))
+        }
     }
 
     private func loadCurrent(autoplay: Bool) {
@@ -147,6 +269,7 @@ final class PlayerEngine: ObservableObject {
         player.replaceCurrentItem(with: item)
         currentTime = 0
         duration = track.duration
+        recordHistory(track)
         endObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: item,
@@ -154,8 +277,15 @@ final class PlayerEngine: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
-                if self.hasNext {
+                if self.repeatMode == .one {
+                    self.seek(to: 0)
+                    self.player.play()
+                    self.isPlaying = true
+                } else if self.hasNext {
                     self.playNext()
+                } else if self.repeatMode == .all, !self.queue.isEmpty {
+                    self.currentIndex = 0
+                    self.loadCurrent(autoplay: true)
                 } else {
                     self.isPlaying = false
                     self.currentTime = self.duration

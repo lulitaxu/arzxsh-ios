@@ -3,6 +3,7 @@ import SwiftUI
 struct SearchView: View {
     @EnvironmentObject var engine: PlayerEngine
     @State private var query = ""
+    @State private var path = NavigationPath()
 
     private let categories: [(String, [Color])] = [
         ("Indie", [Color(red: 0.10, green: 0.13, blue: 0.42), Color(red: 0.38, green: 0.20, blue: 0.68)]),
@@ -28,7 +29,7 @@ struct SearchView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
                 if query.isEmpty {
                     browse
@@ -106,6 +107,9 @@ struct SearchView: View {
                             TrackRow(track: track)
                         }
                         .buttonStyle(.plain)
+                        .contextMenu {
+                            TrackMenuContent(track: track, onGoToAlbum: { path.append(Catalog.album(for: track)) })
+                        }
                     }
                 }
             }
