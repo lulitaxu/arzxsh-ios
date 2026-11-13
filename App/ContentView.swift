@@ -7,29 +7,28 @@ struct ContentView: View {
     @State private var didHandleLaunchArgs = false
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .bottom) {
-                TabView(selection: $selectedTab) {
-                    HomeView(path: $homePath)
-                        .tabItem { Label("Home", systemImage: "house.fill") }
-                        .tag(0)
-                    LibraryView()
-                        .tabItem { Label("Library", systemImage: "books.vertical.fill") }
-                        .tag(1)
-                    SearchView()
-                        .tabItem { Label("Search", systemImage: "magnifyingglass") }
-                        .tag(2)
-                }
-                .tint(AppTheme.accent)
+        ZStack(alignment: .bottom) {
+            TabView(selection: $selectedTab) {
+                HomeView(path: $homePath)
+                    .tabItem { Label("Home", systemImage: "house.fill") }
+                    .tag(0)
+                LibraryView()
+                    .tabItem { Label("Library", systemImage: "books.vertical.fill") }
+                    .tag(1)
+                SearchView()
+                    .tabItem { Label("Search", systemImage: "magnifyingglass") }
+                    .tag(2)
+            }
+            .tint(AppTheme.accent)
 
-                if engine.currentTrack != nil {
-                    MiniPlayerView()
-                        .padding(.horizontal, 8)
-                        .padding(.bottom, geo.safeAreaInsets.bottom + 53)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
+            if engine.currentTrack != nil {
+                MiniPlayerView()
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 92)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .preferredColorScheme(.dark)
         .animation(.spring(response: 0.45, dampingFraction: 0.85), value: engine.currentTrack?.id)
         .fullScreenCover(isPresented: $engine.showNowPlaying) {
