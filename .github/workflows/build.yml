@@ -19,6 +19,18 @@ jobs:
       - name: Generate project
         run: xcodegen generate
 
+      - name: Ensure iPhone 16 simulator exists
+        run: |
+          if xcrun simctl list devices available | grep -qE "iPhone 16 \("; then
+            echo "iPhone 16 simulator already present."
+          else
+            RUNTIME=$(xcrun simctl list runtimes available | grep -oE "com.apple.CoreSimulator.SimRuntime.iOS-[0-9-]+" | sort -V | tail -1)
+            DEVTYPE=$(xcrun simctl list devicetypes | grep -oE "com.apple.CoreSimulator.SimDeviceType.iPhone-16\)" | tr -d ')' | head -1)
+            echo "Creating iPhone 16 simulator: devtype=$DEVTYPE runtime=$RUNTIME"
+            xcrun simctl create "iPhone 16" "$DEVTYPE" "$RUNTIME"
+          fi
+          xcrun simctl list devices available | grep "iPhone 16" || true
+
       - name: Build for testing
         run: |
           set -o pipefail
