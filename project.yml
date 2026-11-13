@@ -20,6 +20,8 @@ targets:
       - path: Player
       - path: Views
       - path: Resources
+      - path: Shared
+      - path: Widgets/WidgetViews.swift
     info:
       path: App/Info.plist
       properties:
@@ -29,12 +31,45 @@ targets:
           UIApplicationSupportsMultipleScenes: true
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        UIBackgroundModes:
+          - audio
+    entitlements:
+      path: App/arzxsh.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.me.arafatarzu.arzxsh
+    dependencies:
+      - target: ArzxshWidgets
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: me.arafatarzu.arzxsh
     scheme:
       testTargets:
         - arzxshUITests
+        - arzxshTests
+  ArzxshWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widgets
+      - path: Shared
+      - path: Models
+      - path: Views/CoverArt.swift
+    info:
+      path: Widgets/Info.plist
+      properties:
+        CFBundleDisplayName: arzxsh Widgets
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Widgets/ArzxshWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.me.arafatarzu.arzxsh
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: me.arafatarzu.arzxsh.widgets
   arzxshUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -46,3 +81,15 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: me.arafatarzu.arzxshUITests
         TEST_TARGET_NAME: arzxsh
+  arzxshTests:
+    type: bundle.unit-testing
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: arzxsh
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: me.arafatarzu.arzxshTests
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/arzxsh.app/arzxsh
+        BUNDLE_LOADER: $(TEST_HOST)

@@ -1,5 +1,8 @@
 import AVFoundation
 import Foundation
+import MediaPlayer
+import SwiftUI
+import WidgetKit
 
 enum RepeatMode {
     case off
@@ -45,10 +48,21 @@ final class PlayerEngine: ObservableObject {
     private var preShuffleQueue: [Track]?
     private var sleepTask: Task<Void, Never>?
     private let likedKey = "arzxsh.likedTrackIDs"
+    private var remoteTargets: [Any] = []
+    private var artworkCache: [String: UIImage] = [:]
+    private var signalObserver: PlaybackSignalObserver?
+    private var lastProgressSync: Double = -10
 
     init() {
         likedIDs = Set(UserDefaults.standard.stringArray(forKey: likedKey) ?? [])
         player.volume = volume
+        configureAudioSession()
+        setupRemoteCommands()
+        signalObserver = PlaybackSignalObserver { [weak self] in
+            Task { @MainActor in
+                self?.applySharedPlaybackIntent()
+            }
+        }
         timeObserver = player.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: 0.3, preferredTimescale: 600),
             queue: .main
@@ -56,6 +70,10 @@ final class PlayerEngine: ObservableObject {
             guard let self else { return }
             if time.seconds.isFinite {
                 self.currentTime = time.seconds
+                if abs(time.seconds - self.lastProgressSync) >= 2 {
+                    self.lastProgressSync = time.seconds
+                    self.syncSharedState(reloadWidgets: false)
+                }
             }
             if let itemSeconds = self.player.currentItem?.duration.seconds, itemSeconds.isFinite, itemSeconds > 0 {
                 self.duration = itemSeconds
@@ -69,6 +87,10 @@ final class PlayerEngine: ObservableObject {
         }
         if let endObserver {
             NotificationCenter.default.removeObserver(endObserver)
+        }
+        let center = MPRemoteCommandCenter.shared()
+        for target in remoteTargets {
+            center.removeTarget(target)
         }
     }
 
@@ -98,6 +120,8 @@ final class PlayerEngine: ObservableObject {
             player.play()
             isPlaying = true
         }
+        updateNowPlayingInfo()
+        syncSharedState()
     }
 
     func playNext() {
@@ -138,7 +162,10 @@ final class PlayerEngine: ObservableObject {
         let time = CMTime(seconds: target, preferredTimescale: 600)
         player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
             Task { @MainActor in
-                self?.currentTime = target
+                guard let self else { return }
+                self.currentTime = target
+                self.updateNowPlayingInfo()
+                self.syncSharedState()
             }
         }
     }
@@ -227,6 +254,8 @@ final class PlayerEngine: ObservableObject {
             if self.isPlaying {
                 self.player.pause()
                 self.isPlaying = false
+                self.updateNowPlayingInfo()
+                self.syncSharedState()
             }
             self.sleepTimerMinutes = nil
             self.sleepTask = nil
@@ -240,6 +269,7 @@ final class PlayerEngine: ObservableObject {
             likedIDs.insert(track.id)
         }
         UserDefaults.standard.set(Array(likedIDs), forKey: likedKey)
+        syncSharedState()
     }
 
     func isLiked(_ track: Track) -> Bool {
@@ -290,6 +320,8 @@ final class PlayerEngine: ObservableObject {
                 } else {
                     self.isPlaying = false
                     self.currentTime = self.duration
+                    self.updateNowPlayingInfo()
+                    self.syncSharedState()
                 }
             }
         }
@@ -298,6 +330,128 @@ final class PlayerEngine: ObservableObject {
             isPlaying = true
         } else {
             isPlaying = false
+        }
+        updateNowPlayingInfo()
+        syncSharedState()
+    }
+
+    private func configureAudioSession() {
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playback, mode: .default)
+        try? session.setActive(true)
+    }
+
+    private func setupRemoteCommands() {
+        let center = MPRemoteCommandCenter.shared()
+        remoteTargets.append(center.playCommand.addTarget { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.currentTrack != nil, !self.isPlaying else { return }
+                self.togglePlayPause()
+            }
+            return .success
+        })
+        remoteTargets.append(center.pauseCommand.addTarget { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.isPlaying else { return }
+                self.togglePlayPause()
+            }
+            return .success
+        })
+        remoteTargets.append(center.togglePlayPauseCommand.addTarget { [weak self] _ in
+            Task { @MainActor in
+                self?.togglePlayPause()
+            }
+            return .success
+        })
+        remoteTargets.append(center.nextTrackCommand.addTarget { [weak self] _ in
+            Task { @MainActor in
+                self?.playNext()
+            }
+            return .success
+        })
+        remoteTargets.append(center.previousTrackCommand.addTarget { [weak self] _ in
+            Task { @MainActor in
+                self?.playPrevious()
+            }
+            return .success
+        })
+        remoteTargets.append(center.changePlaybackPositionCommand.addTarget { [weak self] event in
+            guard let positionEvent = event as? MPChangePlaybackPositionCommandEvent else {
+                return .commandFailed
+            }
+            let position = positionEvent.positionTime
+            Task { @MainActor in
+                self?.seek(to: position)
+            }
+            return .success
+        })
+    }
+
+    private func artworkImage(for album: Album) -> UIImage? {
+        if let cached = artworkCache[album.id] {
+            return cached
+        }
+        let renderer = ImageRenderer(content: ArtworkView(album: album, size: 600))
+        renderer.scale = 1
+        guard let image = renderer.uiImage else { return nil }
+        artworkCache[album.id] = image
+        return image
+    }
+
+    private func updateNowPlayingInfo() {
+        guard let track = currentTrack else {
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+            return
+        }
+        let album = Catalog.album(for: track)
+        var info: [String: Any] = [
+            MPMediaItemPropertyTitle: track.title,
+            MPMediaItemPropertyArtist: track.artist,
+            MPMediaItemPropertyAlbumTitle: album.title,
+            MPMediaItemPropertyPlaybackDuration: duration > 0 ? duration : track.duration,
+            MPNowPlayingInfoPropertyElapsedPlaybackTime: currentTime,
+            MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
+            MPNowPlayingInfoPropertyIsLiveStream: false
+        ]
+        if let image = artworkImage(for: album) {
+            info[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+        }
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    private func applySharedPlaybackIntent() {
+        let desired = SharedStore.read().isPlaying
+        guard currentTrack != nil, desired != isPlaying else { return }
+        togglePlayPause()
+    }
+
+    private func syncSharedState(reloadWidgets: Bool = true) {
+        let recents = history.prefix(5).map {
+            SharedRecentTrack(title: $0.title, artist: $0.artist, albumID: $0.albumID)
+        }
+        let state: SharedState
+        if let track = currentTrack {
+            let album = Catalog.album(for: track)
+            state = SharedState(
+                trackID: track.id,
+                title: track.title,
+                artist: track.artist,
+                albumTitle: album.title,
+                albumID: album.id,
+                isPlaying: isPlaying,
+                progress: duration > 0 ? min(1, max(0, currentTime / duration)) : 0,
+                likedCount: likedIDs.count,
+                recents: recents
+            )
+        } else {
+            var empty = SharedState.empty
+            empty.likedCount = likedIDs.count
+            empty.recents = recents
+            state = empty
+        }
+        SharedStore.write(state)
+        if reloadWidgets {
+            WidgetCenter.shared.reloadAllTimelines()
         }
     }
 }
