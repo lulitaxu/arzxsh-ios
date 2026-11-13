@@ -1,0 +1,87 @@
+name: Build and Screenshots
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Build and run UI tests
+        run: |
+          set -o pipefail
+          mkdir -p build
+          xcodebuild test \
+            -project arzxsh.xcodeproj \
+            -scheme arzxsh \
+            -destination "platform=iOS Simulator,name=iPhone 16" \
+            -resultBundlePath build/Results.xcresult \
+            2>&1 | tee build/xcodebuild.log | tail -30
+
+      - name: Extract screenshots from test result
+        if: always()
+        run: |
+          mkdir -p build/shots
+          xcrun xcresulttool export attachments --path build/Results.xcresult --output-path build/shots || true
+          python3 scripts/rename_shots.py build/shots || true
+          ls -la build/shots || true
+
+      - name: Fallback screenshots via simctl
+        if: always()
+        run: |
+          if ls build/shots/*.png >/dev/null 2>&1; then
+            echo "Attachment screenshots found, skipping fallback."
+            exit 0
+          fi
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "arzxsh.app" -path "*iphonesimulator*" | head -1)
+          echo "App: $APP_PATH"
+          UDID=$(xcrun simctl list devices available | grep -E "iPhone 16 \(" | head -1 | sed -E 's/.*\(([0-9A-F-]+)\).*/\1/')
+          echo "Device: $UDID"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b || true
+          xcrun simctl install "$UDID" "$APP_PATH"
+          mkdir -p build/shots
+          for pair in "home:Home" "library:Library" "search:Search" "album:Album" "nowplaying:NowPlaying" "lyrics:Lyrics" "queue:Queue"; do
+            screen="${pair%%:*}"
+            name="${pair##*:}"
+            xcrun simctl launch --terminate-running-process "$UDID" me.arafatarzu.arzxsh -screen "$screen" || true
+            sleep 4
+            xcrun simctl io "$UDID" screenshot "build/shots/$name.png" || true
+          done
+          ls -la build/shots
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: build/shots/*.png
+          if-no-files-found: warn
+
+      - name: Upload test result bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcresult
+          path: build/Results.xcresult
+          if-no-files-found: warn
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build/xcodebuild.log
+          if-no-files-found: warn

@@ -1,0 +1,48 @@
+name: arzxsh
+options:
+  bundleIdPrefix: me.arafatarzu
+  deploymentTarget:
+    iOS: "18.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+    CODE_SIGNING_ALLOWED: "NO"
+targets:
+  arzxsh:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+      - path: Models
+      - path: Player
+      - path: Views
+      - path: Resources
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: arzxsh
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: me.arafatarzu.arzxsh
+    scheme:
+      testTargets:
+        - arzxshUITests
+  arzxshUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: arzxsh
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: me.arafatarzu.arzxshUITests
+        TEST_TARGET_NAME: arzxsh
