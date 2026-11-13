@@ -158,8 +158,9 @@ final class PlayerEngine: ObservableObject {
             return
         }
         queue.insert(contentsOf: tracks, at: currentIndex + 1)
-        if shuffleEnabled {
-            preShuffleQueue?.insert(contentsOf: tracks, at: min(currentIndex + 1, preShuffleQueue?.count ?? 0))
+        if shuffleEnabled, var backup = preShuffleQueue {
+            backup.insert(contentsOf: tracks, at: min(currentIndex + 1, backup.count))
+            preShuffleQueue = backup
         }
     }
 
