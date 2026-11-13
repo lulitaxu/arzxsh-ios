@@ -61,14 +61,15 @@ struct NowPlayingView: View {
     @EnvironmentObject var engine: PlayerEngine
 
     var body: some View {
-        ZStack {
-            background
+        Group {
             if let track = engine.currentTrack {
                 content(track: track)
             } else {
                 emptyState
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(background)
         .sheet(isPresented: $engine.showQueue) {
             QueueView()
         }
