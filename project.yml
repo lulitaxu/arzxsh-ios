@@ -82,7 +82,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: me.arafatarzu.arzxshUITests
         TEST_TARGET_NAME: arzxsh
   arzxshTests:
-    type: bundle.unit-testing
+    type: bundle.unit-test
     platform: iOS
     sources:
       - path: Tests
