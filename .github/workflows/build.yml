@@ -56,10 +56,13 @@ jobs:
       - name: Extract screenshots from test results
         if: always()
         run: |
-          mkdir -p build/shots
-          xcrun xcresulttool export attachments --path build/ResultsUnit.xcresult --output-path build/shots || true
-          xcrun xcresulttool export attachments --path build/ResultsUI.xcresult --output-path build/shots || true
-          python3 scripts/rename_shots.py build/shots || true
+          mkdir -p build/shots build/shots-unit build/shots-ui
+          xcrun xcresulttool export attachments --path build/ResultsUnit.xcresult --output-path build/shots-unit || true
+          xcrun xcresulttool export attachments --path build/ResultsUI.xcresult --output-path build/shots-ui || true
+          python3 scripts/rename_shots.py build/shots-unit || true
+          python3 scripts/rename_shots.py build/shots-ui || true
+          cp build/shots-unit/*.png build/shots/ 2>/dev/null || true
+          cp build/shots-ui/*.png build/shots/ 2>/dev/null || true
           ls -la build/shots || true
 
       - name: Upload screenshots

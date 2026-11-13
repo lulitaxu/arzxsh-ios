@@ -42,36 +42,36 @@ struct LockRectangularWidgetView: View {
                 .fill(Color.black.opacity(0.88))
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(d.album.tint.opacity(0.30))
-            HStack(spacing: 10) {
-                CoverArt(spec: d.album.coverSpec, size: CGSize(width: 50, height: 50), showsTitle: false)
-                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            HStack(spacing: 8) {
+                CoverArt(spec: d.album.coverSpec, size: CGSize(width: 40, height: 40), showsTitle: false)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(d.title)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.white)
                         .lineLimit(1)
                     Text(d.artist)
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                         .foregroundStyle(Color.white.opacity(0.72))
                         .lineLimit(1)
                     Text(state.albumTitle ?? d.album.title)
-                        .font(.system(size: 11))
+                        .font(.system(size: 10))
                         .foregroundStyle(Color.white.opacity(0.5))
                         .lineLimit(1)
                 }
-                Spacer(minLength: 2)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 if d.hasTrack {
                     Button(intent: TogglePlaybackIntent()) {
                         Image(systemName: state.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(.white)
-                            .frame(width: 34, height: 34)
+                            .frame(width: 32, height: 32)
                             .background(Circle().fill(AppTheme.accent))
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 10)
             .padding(.vertical, 8)
         }
     }
