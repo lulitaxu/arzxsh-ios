@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Check out
         uses: actions/checkout@v4
@@ -19,27 +19,78 @@ jobs:
       - name: Generate project
         run: xcodegen generate
 
-      - name: Build and run UI tests
+      - name: Build for testing
         run: |
           set -o pipefail
           mkdir -p build
-          xcodebuild test \
+          xcodebuild build-for-testing \
             -project arzxsh.xcodeproj \
             -scheme arzxsh \
             -destination "platform=iOS Simulator,name=iPhone 16" \
-            -resultBundlePath build/Results.xcresult \
-            2>&1 | tee build/xcodebuild.log | tail -30
+            2>&1 | tee build/build.log | tail -20
 
-      - name: Extract screenshots from test result
+      - name: Run unit tests
+        timeout-minutes: 20
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building \
+            -project arzxsh.xcodeproj \
+            -scheme arzxsh \
+            -destination "platform=iOS Simulator,name=iPhone 16" \
+            -only-testing:arzxshTests \
+            -resultBundlePath build/ResultsUnit.xcresult \
+            2>&1 | tee build/unit-tests.log | tail -30
+
+      - name: Run UI tests
+        timeout-minutes: 25
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building \
+            -project arzxsh.xcodeproj \
+            -scheme arzxsh \
+            -destination "platform=iOS Simulator,name=iPhone 16" \
+            -only-testing:arzxshUITests \
+            -resultBundlePath build/ResultsUI.xcresult \
+            2>&1 | tee build/ui-tests.log | tail -30
+
+      - name: Extract screenshots from test results
         if: always()
         run: |
           mkdir -p build/shots
-          xcrun xcresulttool export attachments --path build/Results.xcresult --output-path build/shots || true
+          xcrun xcresulttool export attachments --path build/ResultsUnit.xcresult --output-path build/shots || true
+          xcrun xcresulttool export attachments --path build/ResultsUI.xcresult --output-path build/shots || true
           python3 scripts/rename_shots.py build/shots || true
           ls -la build/shots || true
 
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: build/shots/*.png
+          if-no-files-found: warn
+
+      - name: Upload test result bundles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcresult
+          path: |
+            build/ResultsUnit.xcresult
+            build/ResultsUI.xcresult
+          if-no-files-found: warn
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build/*.log
+          if-no-files-found: warn
+
       - name: Fallback screenshots via simctl
         if: always()
+        timeout-minutes: 10
         run: |
           if ls build/shots/*.png >/dev/null 2>&1; then
             echo "Attachment screenshots found, skipping fallback."
@@ -61,27 +112,3 @@ jobs:
             xcrun simctl io "$UDID" screenshot "build/shots/$name.png" || true
           done
           ls -la build/shots
-
-      - name: Upload screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: screenshots
-          path: build/shots/*.png
-          if-no-files-found: warn
-
-      - name: Upload test result bundle
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: xcresult
-          path: build/Results.xcresult
-          if-no-files-found: warn
-
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build/xcodebuild.log
-          if-no-files-found: warn
