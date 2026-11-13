@@ -58,7 +58,7 @@ enum PlaybackSignal {
     static func postToggle() {
         CFNotificationCenterPostNotification(
             CFNotificationCenterGetDarwinNotifyCenter(),
-            CFNotificationName(rawValue: toggleName),
+            CFNotificationName(rawValue: toggleName as CFString),
             nil,
             nil,
             true
@@ -90,6 +90,6 @@ final class PlaybackSignalObserver {
     deinit {
         let center = CFNotificationCenterGetDarwinNotifyCenter()
         let observer = Unmanaged.passUnretained(self).toOpaque()
-        CFNotificationCenterRemoveObserver(center, observer, CFNotificationName(rawValue: PlaybackSignal.toggleName), nil)
+        CFNotificationCenterRemoveObserver(center, observer, CFNotificationName(rawValue: PlaybackSignal.toggleName as CFString), nil)
     }
 }
