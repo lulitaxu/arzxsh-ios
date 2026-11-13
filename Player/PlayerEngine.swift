@@ -48,7 +48,7 @@ final class PlayerEngine: ObservableObject {
     private var preShuffleQueue: [Track]?
     private var sleepTask: Task<Void, Never>?
     private let likedKey = "arzxsh.likedTrackIDs"
-    private var remoteTargets: [Any] = []
+    private var remoteTargets: [(command: MPRemoteCommand, target: Any)] = []
     private var artworkCache: [String: UIImage] = [:]
     private var signalObserver: PlaybackSignalObserver?
     private var lastProgressSync: Double = -10
@@ -88,9 +88,8 @@ final class PlayerEngine: ObservableObject {
         if let endObserver {
             NotificationCenter.default.removeObserver(endObserver)
         }
-        let center = MPRemoteCommandCenter.shared()
-        for target in remoteTargets {
-            center.removeTarget(target)
+        for entry in remoteTargets {
+            entry.command.removeTarget(entry.target)
         }
     }
 
@@ -343,39 +342,39 @@ final class PlayerEngine: ObservableObject {
 
     private func setupRemoteCommands() {
         let center = MPRemoteCommandCenter.shared()
-        remoteTargets.append(center.playCommand.addTarget { [weak self] _ in
+        remoteTargets.append((command: center.playCommand, target: center.playCommand.addTarget { [weak self] _ in
             Task { @MainActor in
                 guard let self, self.currentTrack != nil, !self.isPlaying else { return }
                 self.togglePlayPause()
             }
             return .success
-        })
-        remoteTargets.append(center.pauseCommand.addTarget { [weak self] _ in
+        }))
+        remoteTargets.append((command: center.pauseCommand, target: center.pauseCommand.addTarget { [weak self] _ in
             Task { @MainActor in
                 guard let self, self.isPlaying else { return }
                 self.togglePlayPause()
             }
             return .success
-        })
-        remoteTargets.append(center.togglePlayPauseCommand.addTarget { [weak self] _ in
+        }))
+        remoteTargets.append((command: center.togglePlayPauseCommand, target: center.togglePlayPauseCommand.addTarget { [weak self] _ in
             Task { @MainActor in
                 self?.togglePlayPause()
             }
             return .success
-        })
-        remoteTargets.append(center.nextTrackCommand.addTarget { [weak self] _ in
+        }))
+        remoteTargets.append((command: center.nextTrackCommand, target: center.nextTrackCommand.addTarget { [weak self] _ in
             Task { @MainActor in
                 self?.playNext()
             }
             return .success
-        })
-        remoteTargets.append(center.previousTrackCommand.addTarget { [weak self] _ in
+        }))
+        remoteTargets.append((command: center.previousTrackCommand, target: center.previousTrackCommand.addTarget { [weak self] _ in
             Task { @MainActor in
                 self?.playPrevious()
             }
             return .success
-        })
-        remoteTargets.append(center.changePlaybackPositionCommand.addTarget { [weak self] event in
+        }))
+        remoteTargets.append((command: center.changePlaybackPositionCommand, target: center.changePlaybackPositionCommand.addTarget { [weak self] event in
             guard let positionEvent = event as? MPChangePlaybackPositionCommandEvent else {
                 return .commandFailed
             }
@@ -384,7 +383,7 @@ final class PlayerEngine: ObservableObject {
                 self?.seek(to: position)
             }
             return .success
-        })
+        }))
     }
 
     private func artworkImage(for album: Album) -> UIImage? {
